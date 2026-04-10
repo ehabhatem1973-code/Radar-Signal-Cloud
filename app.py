@@ -36,29 +36,33 @@ if st.button("Generate & Classify 🚀"):
 
 with st.spinner('Analyzing signal...'):
             try:
-                # 1. تأكد من حجم الإشارة (مثلاً لو الموديل متدرب على 1024 عينة)
-                # هناخد أول 1024 عينة بس من الإشارة المولدة
-                target_size = 1024 # غير الرقم ده للرقم اللي الموديل اتدرب عليه (مهم جداً)
+                import numpy as np
                 
-                trimmed_signal = signal[:target_size] 
+                # 1. تحديد الحجم (بناءً على الخطأ، الموديل محتاج أبعاد صغيرة)
+                # أغلب موديلات الـ Conv2D للإشارات بتستخدم 128 أو 256
+                target_size = 128 * 128  # ده هيدينا 16384 عينة، لو كتير جرب 32*32
                 
-                # 2. لو الإشارة أصغر من المطلوب، نزودها أصفار (Padding)
-                if len(trimmed_signal) < target_size:
-                    trimmed_signal = np.pad(trimmed_signal, (0, target_size - len(trimmed_signal)))
+                # تأكد من حجم الإشارة
+                if len(signal) > target_size:
+                    processed_signal = signal[:target_size]
+                else:
+                    processed_signal = np.pad(signal, (0, target_size - len(signal)))
 
-                # 3. التجهيز للموديل (Batch, Length, Channels)
-                input_signal = trimmed_signal.reshape(1, target_size, 1)
+                # 2. التعديل الجوهري (Reshape to 4D)
+                # هنخليها مصفوفة مربعة مثلاً 128x128
+                input_data = processed_signal.reshape(1, 128, 128, 1)
                 
-                # 4. التوقع
-                prediction_probs = model.predict(input_signal)
+                # 3. التوقع
+                prediction = model.predict(input_data)
                 
                 classes = ['AM', 'FM'] 
-                result = classes[np.argmax(prediction_probs)]
-                confidence = np.max(prediction_probs) * 100
+                res = classes[np.argmax(prediction)]
+                conf = np.max(prediction) * 100
 
-                st.success(f"### Prediction: {result}")
-                st.info(f"### Confidence: {confidence:.2f}%")
-                
+                st.success(f"### Prediction: {res}")
+                st.info(f"### Confidence: {conf:.2f}%")
+
             except Exception as e:
-                st.error(f"حدث خطأ أثناء التصنيف: {e}")
+                # لو لسه فيه مشكلة في الـ Shape، الرسالة دي هتقولنا الموديل عايز كام بالظبط
+                st.error(f"حدث خطأ في الأبعاد: {e}")
             #import requests هشيل ديه عشان محتاجش اعمل سرفر تاني 
