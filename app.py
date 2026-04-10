@@ -1,7 +1,14 @@
 import streamlit as st
-import requests
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf  # ضفنا ده وشلنا requests
+
+# تحميل الموديل مرة واحدة في أول تشغيل البرنامج
+@st.cache_resource
+def load_my_model():
+    return tf.keras.models.load_model('signal_cnn_model.h5')
+
+model = load_my_model()
 
 st.set_page_config(page_title="Signal Intelligence Radar", page_icon="📡")
 
@@ -27,15 +34,27 @@ if st.button("Generate & Classify 🚀"):
     ax.set_title(f"Generated {signal_type} (First 500 samples)")
     st.pyplot(fig)
 
-    # إرسال للـ API
-    with st.spinner('Analyzing signal...'):
-        try:
-            url = "http://127.0.0.1:8000/predict"
-            response = requests.post(url, json={"data": signal.tolist()})
-            res = response.json()
-            
-            # عرض النتيجة بانبهار
-            st.success(f"### Prediction: {res['prediction']}")
-            st.info(f"### Confidence: {res['confidence']}")
-        except:
-            st.error("Make sure your FastAPI server is running!")
+with st.spinner('Analyzing signal...'):
+            try:
+                # 1. تجهيز الإشارة للموديل (Reshape)
+                # بنحول المصفوفة لشكل (batch, samples, channels)
+                input_signal = signal.reshape(1, -1, 1)
+                
+                # 2. التوقع المباشر باستخدام الموديل اللي حملناه فوق (model)
+                prediction_probs = model.predict(input_signal)
+                
+                # 3. تحديد النوع الأعلى احتمالية
+                # غير الأسماء دي للأنالوغ اللي عندك بالترتيب الصح (AM, FM, etc.)
+                classes = ['AM', 'FM'] 
+                
+                idx = np.argmax(prediction_probs)
+                result = classes[idx]
+                confidence = np.max(prediction_probs) * 100
+
+                # 4. عرض النتائج فوراً
+                st.success(f"### Prediction: {result}")
+                st.info(f"### Confidence: {confidence:.2f}%")
+                
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء التصنيف: {e}")
+            #import requests هشيل ديه عشان محتاجش اعمل سرفر تاني 
