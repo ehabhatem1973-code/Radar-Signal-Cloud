@@ -12,15 +12,25 @@ usernames = ["ehab", "guest"]
 passwords = ["123", "456"]
 
 # تشفير الباسوردات
-hashed_passwords = stauth.Hasher(passwords).generate()
+# السطر 15: الطريقة الجديدة لتشفير القائمة كلها مرة واحدة
+hashed_passwords = stauth.Hasher(passwords).generate() 
 
-# تعريف الـ authenticator (ده السطر اللي كان ناقصك وعامل NameError)
+# السطر 18: تعديل بسيط في شكل البيانات عشان يتناسب مع نسخة 0.4.2
+credentials = {
+    "usernames": {
+        usernames[i]: {
+            "name": names[i],
+            "password": hashed_passwords[i]
+        } for i in range(len(usernames))
+    }
+}
+
+# تعريف الـ Authenticate بالنسخة الجديدة
 authenticator = stauth.Authenticate(
-    {'usernames': {
-        usernames[i]: {'name': names[i], 'password': hashed_passwords[i]} 
-        for i in range(len(usernames))
-    }},
-    "radar_dashboard", "auth_key", cookie_expiry_days=30
+    credentials,
+    "radar_dashboard",
+    "auth_key",
+    cookie_expiry_days=30
 )
 
 # إظهار شاشة الدخول
