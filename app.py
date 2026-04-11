@@ -112,20 +112,22 @@ if authentication_status:
                 res = classes[np.argmax(prediction)]
                 conf = np.max(prediction) * 100
 
-                # عرض النتيجة بشكل شيك
-                st.subheader("2. Intelligence Analysis")
+               
+                # رسم الـ Spectrogram
+                st.subheader("2. Spectrogram (Signal Fingerprint)")
+                fig2, ax2 = plt.subplots(figsize=(10, 4))
+                ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
+                ax2.set_title("Signal Spectrogram (CNN Input)")
+                st.pyplot(fig2)
+
+               # عرض النتيجة بشكل شيك
+                st.subheader("3. Intelligence Analysis")
                 col1, col2 = st.columns(2)
                 with col1:
                     st.success(f"### Prediction: {res}")
                 with col2:
                     st.info(f"### Confidence: {conf:.2f}%")
                 
-                # رسم الـ Spectrogram
-                st.subheader("3. Spectrogram (Signal Fingerprint)")
-                fig2, ax2 = plt.subplots(figsize=(10, 4))
-                ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
-                ax2.set_title("Signal Spectrogram (CNN Input)")
-                st.pyplot(fig2)
 
             except Exception as e:
                 st.error(f"Logic Error: {e}")
