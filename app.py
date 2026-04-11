@@ -15,28 +15,28 @@ passwords = ["123", "456"]
 # السطر 15: الطريقة الجديدة لتشفير القائمة كلها مرة واحدة
 # السطر 15 و 16: الطريقة الصحيحة للنسخة 0.4.2
 # بنسيبه فاضي هنا
-hasher = stauth.Hasher() 
-# وبنبعت القائمة جوه الـ generate)
-hashed_passwords = hasher.generate(passwords)  
+# 1. تعريف البيانات مباشرة
+names = ["Ehab Hatem", "Guest User"]
+usernames = ["ehab", "guest"]
+passwords = ["123", "456"] 
 
-# السطر 18: تعديل بسيط في شكل البيانات عشان يتناسب مع نسخة 0.4.2
+# 2. تجهيز البيانات للمكتبة بدون تشفير يدوي (المكتبة هتعمله داخلياً)
 credentials = {
     "usernames": {
         usernames[i]: {
             "name": names[i],
-            "password": hashed_passwords[i]
+            "password": passwords[i] # بنبعت الباسورد العادي هنا
         } for i in range(len(usernames))
     }
 }
 
-# تعريف الـ Authenticate بالنسخة الجديدة
+# 3. تعريف الـ Authenticate
 authenticator = stauth.Authenticate(
     credentials,
     "radar_dashboard",
     "auth_key",
     cookie_expiry_days=30
 )
-
 # إظهار شاشة الدخول
 name, authentication_status, username = authenticator.login('Login', 'main')
 
