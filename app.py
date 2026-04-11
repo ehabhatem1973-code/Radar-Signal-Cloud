@@ -3,7 +3,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from scipy.signal import spectrogram
+import streamlit as st
+import streamlit_authenticator as stauth
+from datetime import datetime 
+ # عشان نسجل الوقت بالظبط
+# ... (كود التعريفات والباسوردات اللي قلناه قبل كدة) ...
 
+name, authentication_status, username = authenticator.login('Login', 'main')
+
+if authentication_status:
+    # أول ما ينجح في الدخول، هنسجل البيانات دي في ملف
+    with open("logins.txt", "a") as f:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"User: {name} ({username}) | Login Time: {now}\n")
+    
+    authenticator.logout('Logout', 'main')
+    st.success(f'Welcome Engineer *{name}*')
+    
+    
+# --- كود الرادار بتاعك بيبدأ من هنا ---
 # 1. دالة الـ Spectrogram
 def get_spec(signal):
     _, _, Sxx = spectrogram(signal, fs=5000, nperseg=256, noverlap=128)
