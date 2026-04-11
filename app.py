@@ -12,7 +12,6 @@ names = ["Ehab Hatem", "Guest User"]
 usernames = ["ehab", "guest"]
 passwords = ["123", "456"] 
 
-# تجهيز البيانات للمكتبة (نسخة 0.4.2)
 credentials = {
     "usernames": {
         usernames[i]: {
@@ -22,7 +21,6 @@ credentials = {
     }
 }
 
-# تعريف نظام الصلاحيات
 authenticator = stauth.Authenticate(
     credentials,
     "radar_dashboard",
@@ -30,18 +28,21 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
-# --- 2. نظام التسجيل (Sign Up) ---
-# بيظهر قبل اللوجن عشان لو حد جديد عايز يسجل
-try:
-    if authenticator.register_user(location='main'):
-        st.success('User registered successfully! You can now login.')
-except Exception as e:
-    st.error(f"Sign-up Error: {e}")
+# --- 2. التحكم في واجهة المستخدم (The Trick) ---
+# بنعمل مكان فاضي نقدر نتحكم في ظهوره واختفائه
+login_placeholder = st.empty()
 
-# --- 3. نظام تسجيل الدخول (Login) ---
-result = authenticator.login(location='main')
+# بنعرض شاشة الدخول والـ Register جوه المكان الفاضي ده
+with login_placeholder.container():
+    try:
+        if authenticator.register_user(location='main'):
+            st.success('User registered successfully! You can now login.')
+    except Exception as e:
+        st.error(f"Sign-up Error: {e}")
+    
+    result = authenticator.login(location='main')
 
-# فك تشفير النتيجة لضمان عمل الكود
+# فك تشفير نتيجة الدخول
 if isinstance(result, tuple):
     name, authentication_status, username = result
 else:
@@ -49,16 +50,25 @@ else:
     name = st.session_state.get('name')
     username = st.session_state.get('username')
 
-# --- 4. تشغيل البرنامج في حالة نجاح الدخول ---
+# --- 3. تشغيل البرنامج في حالة نجاح الدخول ---
 if authentication_status:
+    # السطر ده بيمسح كل اللي كان جوه login_placeholder (يعني بيخفي شاشة الدخول)
+    login_placeholder.empty()
+    
     # تسجيل الدخول في ملف Log
     with open("logins.txt", "a") as f:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"User: {name} ({username}) | Login Time: {now}\n")
     
-    # واجهة الخروج والترحيب في الجنب
+    # واجهة الخروج والترحيب في الجنب (Sidebar)
     authenticator.logout('Logout', 'sidebar')
+    st.sidebar.title("🛠️ Control Panel")
     st.sidebar.success(f'Welcome Engineer *{name}*')
+
+    # --- بداية صفحة الرادار الجديدة ---
+    st.title("📡 Radar Signal Intelligence")
+    st.markdown("---") # خط فاصل للتنظيم
+    st.write("Current Status: **Active** | System: **Cloud-Based AI**")
 
     # دالة الـ Spectrogram
     def get_spec(signal):
@@ -66,18 +76,15 @@ if authentication_status:
         Sxx_log = 10 * np.log10(Sxx + 1e-10)
         return (Sxx_log - Sxx_log.min()) / (Sxx_log.max() - Sxx_log.min())
 
-    # تحميل الموديل (مرة واحدة فقط)
+    # تحميل الموديل
     @st.cache_resource
     def load_my_model():
         return tf.keras.models.load_model('signal_cnn_model.h5')
 
     model = load_my_model()
 
-    # واجهة مستخدم الرادار
-    st.title("📡 Radar Signal Intelligence")
-    st.write("Welcome, Engineer! Select a signal type and click Generate.")
-
-    signal_option = st.selectbox("Select Signal Type:", ["AM Signal", "FM Signal"])
+    # اختيار نوع الإشارة
+    signal_option = st.selectbox("Select Signal Type to Analyze:", ["AM Signal", "FM Signal"])
 
     if st.button("Generate & Classify 🚀"):
         fs = 5000
@@ -88,31 +95,36 @@ if authentication_status:
         else:
             signal = np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
         
-        # رسم الموجة الزمنية
-        fig1, ax1 = plt.subplots()
-        ax1.plot(t[:500], signal[:500])
+        # عرض الموجة الزمنية
+        st.subheader("1. Time Domain Representation")
+        fig1, ax1 = plt.subplots(figsize=(10, 4))
+        ax1.plot(t[:500], signal[:500], color='blue')
         ax1.set_title(f"Generated {signal_option}")
         st.pyplot(fig1)
 
-        with st.spinner('Analyzing...'):
+        with st.spinner('AI is Analyzing Signal Characteristics...'):
             try:
-                # معالجة الإشارة
                 spec = get_spec(signal)
                 input_data = spec.reshape(1, 129, 38, 1)
                 
-                # التوقع بالذكاء الاصطناعي
                 prediction = model.predict(input_data)
                 classes = ['AM', 'FM']
                 res = classes[np.argmax(prediction)]
                 conf = np.max(prediction) * 100
 
-                st.success(f"### Prediction: {res}")
-                st.info(f"### Confidence: {conf:.2f}%")
+                # عرض النتيجة بشكل شيك
+                st.subheader("2. Intelligence Analysis")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.success(f"### Prediction: {res}")
+                with col2:
+                    st.info(f"### Confidence: {conf:.2f}%")
                 
                 # رسم الـ Spectrogram
-                fig2, ax2 = plt.subplots()
-                ax2.imshow(spec, aspect='auto', origin='lower')
-                ax2.set_title("Signal Spectrogram (AI View)")
+                st.subheader("3. Spectrogram (Signal Fingerprint)")
+                fig2, ax2 = plt.subplots(figsize=(10, 4))
+                ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
+                ax2.set_title("Signal Spectrogram (CNN Input)")
                 st.pyplot(fig2)
 
             except Exception as e:
@@ -121,4 +133,4 @@ if authentication_status:
 elif authentication_status == False:
     st.error('Username/password is incorrect')
 elif authentication_status == None:
-    st.warning('Please enter your username and password or register below')
+    st.warning('Please use the form above to Login or Register a new account')
