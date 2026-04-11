@@ -2,42 +2,49 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from scipy.signal import spectrogram 
-# ضفنا دي عشان نحول الإشارة لصورة
+from scipy.signal import spectrogram
 
-# 1. دالة الـ Spectrogram (لازم تكون نسخة طبق الأصل من كود التدريب)
+# 1. دالة الـ Spectrogram
 def get_spec(signal):
     _, _, Sxx = spectrogram(signal, fs=5000, nperseg=256, noverlap=128)
     Sxx_log = 10 * np.log10(Sxx + 1e-10)
-    # عمل Normalization (مهم جداً عشان الموديل يفهم الأرقام)
     return (Sxx_log - Sxx_log.min()) / (Sxx_log.max() - Sxx_log.min())
 
-# تحميل الموديل
+# 2. تحميل الموديل
 @st.cache_resource
 def load_my_model():
     return tf.keras.models.load_model('signal_cnn_model.h5')
 
 model = load_my_model()
 
+# 3. واجهة البرنامج
+st.set_page_config(page_title="Radar Intelligence", page_icon="📡")
 st.title("📡 Radar Signal Intelligence")
+st.write("Welcome, Engineer! Select a signal type and click Generate.")
 
-# ... (كود توليد الإشارة اللي عندك زي ما هو) ...
+# اختيار نوع الإشارة (لازم يكون بره الـ IF)
+signal_option = st.selectbox("Select Signal Type:", ["AM Signal", "FM Signal"])
 
 if st.button("Generate & Classify 🚀"):
-    # (كود توليد الـ signal هنا)
+    # توليد الإشارة
     fs = 5000
     t = np.linspace(0, 1, fs, endpoint=False)
-    if signal_type == "AM Signal":
+    
+    if signal_option == "AM Signal":
         signal = (1 + 0.5 * np.sin(2 * np.pi * 5 * t)) * np.sin(2 * np.pi * 100 * t)
     else:
         signal = np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
+    
+    # الرسم البياني
+    fig1, ax1 = plt.subplots()
+    ax1.plot(t[:500], signal[:500])
+    ax1.set_title(f"Generated {signal_option}")
+    st.pyplot(fig1)
 
-    with st.spinner('Converting signal to Spectrogram and Analyzing...'):
+    with st.spinner('Analyzing...'):
         try:
-            # الخطوة السحرية: تحويل الإشارة لـ Spectrogram بنفس مقاس التدريب
-            spec = get_spec(signal) 
-            
-            # التأكد من الأبعاد (1, 129, 38, 1)
+            # التحويل لـ Spectrogram
+            spec = get_spec(signal)
             input_data = spec.reshape(1, 129, 38, 1)
             
             # التوقع
@@ -49,11 +56,11 @@ if st.button("Generate & Classify 🚀"):
             st.success(f"### Prediction: {res}")
             st.info(f"### Confidence: {conf:.2f}%")
             
-            # رسم الـ Spectrogram عشان الشغل يبقى احترافي
-            fig, ax = plt.subplots()
-            ax.imshow(spec, aspect='auto', origin='lower')
-            ax.set_title("Spectrogram used for Prediction")
-            st.pyplot(fig)
+            # رسم الـ Spectrogram
+            fig2, ax2 = plt.subplots()
+            ax2.imshow(spec, aspect='auto', origin='lower')
+            ax2.set_title("Signal Spectrogram (AI View)")
+            st.pyplot(fig2)
 
         except Exception as e:
-            st.error(f"Error logic: {e}")
+            st.error(f"Logic Error: {e}")
