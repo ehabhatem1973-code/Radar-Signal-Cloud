@@ -8,141 +8,156 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# --- 1. إعداد الاتصال بـ Google Sheets ---
-# تأكد من وجود [connections.gsheets] في Secrets ورابط الشيت
+# --- 1. إعداد الصفحة والربط السحابي ---
+st.set_page_config(page_title="Radar Signal Intelligence", layout="wide")
+
+# إنشاء اتصال مع Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_users():
-    # قراءة البيانات (تأكد أن الشيت مضبوط على Editor)
-    df = conn.read(ttl=0) 
-    creds = {"usernames": {}}
-    for _, row in df.iterrows():
-        u_name = str(row['Username'])
-        creds["usernames"][u_name] = {
-            "name": str(row['Name']),
-            "password": str(row['Password']),
-            "email": str(row.get('Email', ''))
-        }
-    return creds
+    try:
+        # قراءة البيانات بدون كاش لضمان التحديث اللحظي
+        df = conn.read(ttl=0)
+        creds = {"usernames": {}}
+        
+        # تنظيف أسماء الأعمدة من المسافات الزائدة
+        df.columns = df.columns.str.strip()
+        
+        for _, row in df.iterrows():
+            # استخراج البيانات بناءً على أسماء أعمدة الشيت
+            u_name = str(row['Username']).strip()
+            if u_name and u_name != 'nan':
+                creds["usernames"][u_name] = {
+                    "name": str(row['Name']),
+                    "password": str(row['Password']),
+                    "email": str(row.get('Email', ''))
+                }
+        return creds
+    except Exception:
+        # في حالة الشيت فاضي تماماً
+        return {"usernames": {}}
 
 # تحميل بيانات المستخدمين
-try:
-    credentials = get_all_users()
-except Exception as e:
-    st.error("Connection Error: Please check your Google Sheet Secrets!")
-    credentials = {"usernames": {}}
+credentials = get_all_users()
 
-# إعداد نظام الحماية
+# إعداد نظام الحماية (استخدم مفاتيح ثابتة لتجنب مشاكل الـ Cookie)
 authenticator = stauth.Authenticate(
     credentials,
-    "radar_dashboard",
-    "auth_key",
+    "radar_intelligence_cookie",
+    "auth_signature_key_2026",
     cookie_expiry_days=30
 )
 
 # --- 2. واجهة الدخول والتسجيل ---
-login_placeholder = st.empty()
-
 if not st.session_state.get('authentication_status'):
-    with login_placeholder.container():
-        # --- نموذج التسجيل (Sign Up) ---
+    # تبويب للتنقل بين الدخول والتسجيل
+    tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
+    
+    with tab2:
         try:
             if authenticator.register_user(location='main'):
-                # سحب القائمة المحدثة من الـ session_state
+                # جلب البيانات التي أدخلها المستخدم حالاً من الـ Session
                 all_users_dict = st.session_state['config']['credentials']['usernames']
+                new_username = list(all_users_dict.keys())[-1]
+                user_info = all_users_dict[new_username]
+
+                # تجهيز السطر الجديد بالظبط حسب ترتيب أعمدة الشيت عندك
+                new_entry = pd.DataFrame([{
+                    'Name': user_info.get('name', ''),
+                    'Last name': 'Engineer',
+                    'Email': user_info.get('email', 'N/A'),
+                    'Username': new_username,
+                    'Password': user_info.get('password', ''),
+                    'Password confirmation': user_info.get('password', ''),
+                    'Password hint': 'Radar Project',
+                    'Captcha': 'Verified'
+                }])
+
+                # دمج البيانات الجديدة مع القديمة ورفعها
+                existing_df = conn.read(ttl=0).dropna(how='all')
+                updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
+                conn.update(data=updated_df)
                 
-                # تجهيز البيانات لتطابق أعمدة الشيت في الصورة
-                temp_list = []
-                for uname, info in all_users_dict.items():
-                    temp_list.append({
-                        'Name': info.get('name', ''),
-                        'Last name': 'User', # قيمة افتراضية
-                        'Email': info.get('email', 'N/A'),
-                        'Username': uname,
-                        'Password': info.get('password', ''),
-                        'Password confirmation': info.get('password', ''),
-                        'Password hint': 'Work',
-                        'Captcha': 'Verified'
-                    })
-                
-                # إنشاء DataFrame ورفعه للشيت
-                new_df = pd.DataFrame(temp_list)
-                conn.update(data=new_df)
-                
-                # --- تفعيل الدخول التلقائي والتحويل لصفحة الرادار ---
-                new_user_id = list(all_users_dict.keys())[-1]
-                st.session_state['authentication_status'] = True
-                st.session_state['username'] = new_user_id
-                st.session_state['name'] = all_users_dict[new_user_id]['name']
-                
-                st.success('Registration Success! Accessing Radar Intelligence...')
-                st.rerun() 
+                st.success('✅ Cloud Sync Success! You can now login.')
+                st.balloons()
         except Exception as e:
-            if "config" in str(e):
-                st.info("System Ready. Please fill out the registration form below.")
-            else:
-                st.error(f"Cloud Sync Error: {e}")
-        
-        # نموذج الدخول
-        authenticator.login(location='main')
+            st.info("Please fill the registration form to access the system.")
 
-# التأكد من حالة الدخول
-authentication_status = st.session_state.get('authentication_status')
-name = st.session_state.get('name')
+    with tab1:
+        name, authentication_status, username = authenticator.login(location='main')
+        if authentication_status == False:
+            st.error('Username/password is incorrect')
+        elif authentication_status == None:
+            st.warning('Please enter your credentials')
 
-# --- 3. صفحة الرادار الرئيسية (تظهر بعد الدخول/التسجيل) ---
-if authentication_status:
-    login_placeholder.empty() # مسح واجهة الدخول
-    
+# --- 3. صفحة الرادار الرئيسية (بعد نجاح الدخول) ---
+if st.session_state.get('authentication_status'):
+    # شريط جانبي للمهندس
     authenticator.logout('Logout', 'sidebar')
-    st.sidebar.success(f'Welcome Engineer *{name}*')
+    st.sidebar.success(f"Engineer: {st.session_state['name']}")
+    st.sidebar.markdown("---")
+    st.sidebar.info("System Status: **Active** 📡")
 
-    st.title("📡 Radar Signal Intelligence")
+    st.title("📡 Radar Signal Intelligence & Classification")
     st.markdown("---")
-    st.info("Connected to Cloud Database: **Active**")
 
-    # معالجة الإشارة
+    # وظائف معالجة الإشارة
     def get_spec(signal):
         _, _, Sxx = spectrogram(signal, fs=5000, nperseg=256, noverlap=128)
         Sxx_log = 10 * np.log10(Sxx + 1e-10)
+        # Normalization
         return (Sxx_log - Sxx_log.min()) / (Sxx_log.max() - Sxx_log.min())
 
     @st.cache_resource
     def load_my_model():
+        # تأكد من وجود ملف الموديل في نفس الفولدر على GitHub
         return tf.keras.models.load_model('signal_cnn_model.h5')
 
-    model = load_my_model()
+    # واجهة التحكم في الإشارات
+    col_ctrl, col_res = st.columns([1, 2])
 
-    signal_option = st.selectbox("Select Signal Type:", ["AM Signal", "FM Signal"])
+    with col_ctrl:
+        st.subheader("Signal Generation")
+        signal_option = st.selectbox("Select Modulation Type:", ["AM Signal", "FM Signal"])
+        gen_btn = st.button("Generate & Classify 🚀")
 
-    if st.button("Generate & Classify 🚀"):
+    if gen_btn:
+        model = load_my_model()
         fs = 5000
         t = np.linspace(0, 1, fs, endpoint=False)
         
+        # توليد الإشارة بناءً على النوع المختار
         if signal_option == "AM Signal":
             signal = (1 + 0.5 * np.sin(2 * np.pi * 5 * t)) * np.sin(2 * np.pi * 100 * t)
         else:
             signal = np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
         
-        # النتائج المرئية
-        st.subheader("1. Time Domain Waveform")
-        fig1, ax1 = plt.subplots(figsize=(10, 3))
-        ax1.plot(t[:500], signal[:500], color='dodgerblue')
-        st.pyplot(fig1)
+        with col_res:
+            # 1. رسم الموجة في الزمن
+            st.subheader("1. Time Domain (Waveform)")
+            fig1, ax1 = plt.subplots(figsize=(10, 3))
+            ax1.plot(t[:500], signal[:500], color='dodgerblue', linewidth=1)
+            ax1.grid(True, alpha=0.3)
+            st.pyplot(fig1)
 
-        with st.spinner('AI analyzing signal fingerprint...'):
-            spec = get_spec(signal)
-            input_data = spec.reshape(1, 129, 38, 1)
-            prediction = model.predict(input_data)
-            res = ['AM', 'FM'][np.argmax(prediction)]
-            
-            st.subheader("2. Intelligence Analysis")
-            st.metric("Detected Modulation", res)
+            # 2. تحليل الذكاء الاصطناعي
+            with st.spinner('Running CNN Intelligence Analysis...'):
+                spec = get_spec(signal)
+                # تجهيز البيانات للموديل (Input Shape: 1, 129, 38, 1)
+                input_data = spec.reshape(1, 129, 38, 1)
+                prediction = model.predict(input_data)
+                res_label = ['AM', 'FM'][np.argmax(prediction)]
+                confidence = np.max(prediction) * 100
+                
+                st.subheader("2. Intelligence Results")
+                c1, c2 = st.columns(2)
+                c1.metric("Detected Modulation", res_label)
+                c2.metric("Confidence Score", f"{confidence:.2f}%")
 
-            st.subheader("3. Spectrogram Analysis")
+            # 3. رسم السبيكتروجرام
+            st.subheader("3. Spectrogram (Fingerprint)")
             fig2, ax2 = plt.subplots(figsize=(10, 4))
             ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
+            ax2.set_ylabel("Frequency Bin")
+            ax2.set_xlabel("Time Bin")
             st.pyplot(fig2)
-
-elif authentication_status == False:
-    st.error('Username/password is incorrect')
