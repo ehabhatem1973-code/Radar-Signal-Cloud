@@ -38,21 +38,21 @@ with st.spinner('Analyzing signal...'):
             try:
                 import numpy as np
                 
-                # 1. تحديد الحجم (بناءً على الخطأ، الموديل محتاج أبعاد صغيرة)
-                # أغلب موديلات الـ Conv2D للإشارات بتستخدم 128 أو 256
-                target_size = 128 * 128  # ده هيدينا 16384 عينة، لو كتير جرب 32*32
+                # 1. الحجم المستهدف بناءً على رسالة الخطأ
+                # 15360 هو الرقم السحري اللي الموديل عايزه
+                target_size = 15360 
                 
-                # تأكد من حجم الإشارة
+                # 2. معالجة الإشارة لتناسب الحجم
                 if len(signal) > target_size:
                     processed_signal = signal[:target_size]
                 else:
                     processed_signal = np.pad(signal, (0, target_size - len(signal)))
 
-                # 2. التعديل الجوهري (Reshape to 4D)
-                # هنخليها مصفوفة مربعة مثلاً 128x128
-                input_data = processed_signal.reshape(1, 128, 128, 1)
+                # 3. التعديل الجوهري للأبعاد (Reshape)
+                # هنخليها 120 في 128 عشان المجموع يبقى 15360
+                input_data = processed_signal.reshape(1, 120, 128, 1)
                 
-                # 3. التوقع
+                # 4. التوقع
                 prediction = model.predict(input_data)
                 
                 classes = ['AM', 'FM'] 
@@ -63,6 +63,5 @@ with st.spinner('Analyzing signal...'):
                 st.info(f"### Confidence: {conf:.2f}%")
 
             except Exception as e:
-                # لو لسه فيه مشكلة في الـ Shape، الرسالة دي هتقولنا الموديل عايز كام بالظبط
-                st.error(f"حدث خطأ في الأبعاد: {e}")
+                st.error(f"Error logic: {e}")
             #import requests هشيل ديه عشان محتاجش اعمل سرفر تاني 
