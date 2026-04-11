@@ -16,15 +16,12 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_users():
     try:
-        # قراءة البيانات بدون كاش لضمان التحديث اللحظي
+        # قراءة البيانات بدون كاش
         df = conn.read(ttl=0)
         creds = {"usernames": {}}
-        
-        # تنظيف أسماء الأعمدة من المسافات الزائدة
         df.columns = df.columns.str.strip()
         
         for _, row in df.iterrows():
-            # استخراج البيانات بناءً على أسماء أعمدة الشيت
             u_name = str(row['Username']).strip()
             if u_name and u_name != 'nan':
                 creds["usernames"][u_name] = {
@@ -34,13 +31,12 @@ def get_all_users():
                 }
         return creds
     except Exception:
-        # في حالة الشيت فاضي تماماً
         return {"usernames": {}}
 
 # تحميل بيانات المستخدمين
 credentials = get_all_users()
 
-# إعداد نظام الحماية (استخدم مفاتيح ثابتة لتجنب مشاكل الـ Cookie)
+# إعداد نظام الحماية
 authenticator = stauth.Authenticate(
     credentials,
     "radar_intelligence_cookie",
@@ -50,18 +46,16 @@ authenticator = stauth.Authenticate(
 
 # --- 2. واجهة الدخول والتسجيل ---
 if not st.session_state.get('authentication_status'):
-    # تبويب للتنقل بين الدخول والتسجيل
     tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
     
     with tab2:
         try:
             if authenticator.register_user(location='main'):
-                # جلب البيانات التي أدخلها المستخدم حالاً من الـ Session
                 all_users_dict = st.session_state['config']['credentials']['usernames']
                 new_username = list(all_users_dict.keys())[-1]
                 user_info = all_users_dict[new_username]
 
-                # تجهيز السطر الجديد بالظبط حسب ترتيب أعمدة الشيت عندك
+                # تجهيز السطر للشيت
                 new_entry = pd.DataFrame([{
                     'Name': user_info.get('name', ''),
                     'Last name': 'Engineer',
@@ -73,28 +67,28 @@ if not st.session_state.get('authentication_status'):
                     'Captcha': 'Verified'
                 }])
 
-                # دمج البيانات الجديدة مع القديمة ورفعها
                 existing_df = conn.read(ttl=0).dropna(how='all')
                 updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
                 conn.update(data=updated_df)
-                
-                st.success('✅ Cloud Sync Success! You can now login.')
-                st.balloons()
+                st.success('✅ Cloud Sync Success! Now go to Login tab.')
         except Exception as e:
-            st.info("Please fill the registration form to access the system.")
+            st.info("Fill the form to register.")
 
     with tab1:
-        name, authentication_status, username = authenticator.login(location='main')
-        if authentication_status == False:
+        # التعديل المعدل لفك مشكلة الـ TypeError
+        authenticator.login(location='main')
+        
+        if st.session_state.get('authentication_status') is False:
             st.error('Username/password is incorrect')
-        elif authentication_status == None:
+        elif st.session_state.get('authentication_status') is None:
             st.warning('Please enter your credentials')
 
 # --- 3. صفحة الرادار الرئيسية (بعد نجاح الدخول) ---
 if st.session_state.get('authentication_status'):
     # شريط جانبي للمهندس
     authenticator.logout('Logout', 'sidebar')
-    st.sidebar.success(f"Engineer: {st.session_state['name']}")
+    # إضافة حماية بسيطة لو لم يتم تعريف st.session_state.get('name')
+    st.sidebar.success(f"Engineer: {st.session_state.get('name', 'User')}")
     st.sidebar.markdown("---")
     st.sidebar.info("System Status: **Active** 📡")
 
@@ -137,6 +131,7 @@ if st.session_state.get('authentication_status'):
             st.subheader("1. Time Domain (Waveform)")
             fig1, ax1 = plt.subplots(figsize=(10, 3))
             ax1.plot(t[:500], signal[:500], color='dodgerblue', linewidth=1)
+            ax1.set_title(f"Generated signal: {signal_option}")
             ax1.grid(True, alpha=0.3)
             st.pyplot(fig1)
 
@@ -154,10 +149,15 @@ if st.session_state.get('authentication_status'):
                 c1.metric("Detected Modulation", res_label)
                 c2.metric("Confidence Score", f"{confidence:.2f}%")
 
-            # 3. رسم السبيكتروجرام
-            st.subheader("3. Spectrogram (Fingerprint)")
+            # 3. رسم السبيكتروجرام (Fingerprint Graph) 🎨
+            st.subheader("3. Spectrogram (Signal Fingerprint)")
             fig2, ax2 = plt.subplots(figsize=(10, 4))
-            ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
+            # استخدام cmap ملون مثل viridis لإظهار شدة الإشارة
+            img = ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
             ax2.set_ylabel("Frequency Bin")
             ax2.set_xlabel("Time Bin")
+            ax2.set_title("Signal Power Spectrogram")
+            
+            # إضافة Colorbar لإظهار مقياس الشدة
+            fig2.colorbar(img, ax=ax2, label='Normalized Intensity')
             st.pyplot(fig2)
