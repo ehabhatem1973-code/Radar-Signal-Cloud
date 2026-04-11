@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import tensorflow as tf  # ضفنا ده وشلنا requests
+import tensorflow as tf 
 
 # تحميل الموديل مرة واحدة في أول تشغيل البرنامج
 @st.cache_resource
@@ -19,7 +19,7 @@ st.write("Welcome, Engineer! Upload or Generate a signal to classify it using AI
 signal_type = st.selectbox("Select Signal Type to Generate:", ["AM Signal", "FM Signal"])
 
 if st.button("Generate & Classify 🚀"):
-    # توليد إشارة حقيقية (5000 عينة) عشان الموديل ينبهر
+    # توليد إشارة حقيقية (5000 عينة)
     fs = 5000
     t = np.linspace(0, 1, fs, endpoint=False)
     
@@ -30,38 +30,34 @@ if st.button("Generate & Classify 🚀"):
     
     # رسم الإشارة
     fig, ax = plt.subplots()
-    ax.plot(t[:500], signal[:500]) # رسم أول 500 عينة بس للوضوح
+    ax.plot(t[:500], signal[:500]) 
     ax.set_title(f"Generated {signal_type} (First 500 samples)")
     st.pyplot(fig)
 
-with st.spinner('Analyzing signal...'):
-            try:
-                import numpy as np
-                
-                # 1. الحجم المستهدف بناءً على رسالة الخطأ
-                # 15360 هو الرقم السحري اللي الموديل عايزه
-                target_size = 15360 
-                
-                # 2. معالجة الإشارة لتناسب الحجم
-                if len(signal) > target_size:
-                    processed_signal = signal[:target_size]
-                else:
-                    processed_signal = np.pad(signal, (0, target_size - len(signal)))
+    # --- الجزء ده لازم يكون جوه الـ if بتاعة الزرار وتحت توليد الـ signal مباشرة ---
+    with st.spinner('Analyzing signal...'):
+        try:
+            # 1. الحجم المستهدف (الرقم اللي الموديل مستنيه)
+            target_size = 15360 
+            
+            # 2. معالجة الإشارة لتناسب الحجم
+            if len(signal) > target_size:
+                processed_signal = signal[:target_size]
+            else:
+                processed_signal = np.pad(signal, (0, target_size - len(signal)))
 
-                # 3. التعديل الجوهري للأبعاد (Reshape)
-                # هنخليها 120 في 128 عشان المجموع يبقى 15360
-                input_data = processed_signal.reshape(1, 120, 128, 1)
-                
-                # 4. التوقع
-                prediction = model.predict(input_data)
-                
-                classes = ['AM', 'FM'] 
-                res = classes[np.argmax(prediction)]
-                conf = np.max(prediction) * 100
+            # 3. التعديل الجوهري للأبعاد (Reshape)
+            input_data = processed_signal.reshape(1, 120, 128, 1)
+            
+            # 4. التوقع
+            prediction = model.predict(input_data)
+            
+            classes = ['AM', 'FM'] 
+            res = classes[np.argmax(prediction)]
+            conf = np.max(prediction) * 100
 
-                st.success(f"### Prediction: {res}")
-                st.info(f"### Confidence: {conf:.2f}%")
+            st.success(f"### Prediction: {res}")
+            st.info(f"### Confidence: {conf:.2f}%")
 
-            except Exception as e:
-                st.error(f"Error logic: {e}")
-            #import requests هشيل ديه عشان محتاجش اعمل سرفر تاني 
+        except Exception as e:
+            st.error(f"Error logic: {e}")
