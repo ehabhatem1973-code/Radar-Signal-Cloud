@@ -38,7 +38,17 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 # إظهار شاشة الدخول
-name, authentication_status, username = authenticator.login('Login', 'main')
+# السطر 41: التعديل الصحيح للنسخة الجديدة
+result = authenticator.login(location='main')
+
+# فك القيم الناتجة (عشان الكود اللي تحت يفضل شغال)
+if isinstance(result, tuple):
+    name, authentication_status, username = result
+else:
+    # في بعض التحديثات النتيجة بتكون مخزنة داخلياً في الـ authenticator
+    authentication_status = st.session_state.get('authentication_status')
+    name = st.session_state.get('name')
+    username = st.session_state.get('username')
 
 # --- 2. التحقق من حالة الدخول ---
 if authentication_status:
