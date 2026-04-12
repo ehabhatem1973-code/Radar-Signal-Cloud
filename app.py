@@ -7,6 +7,9 @@ import streamlit_authenticator as stauth
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
+# --- 1. إعداد الصفحة والربط السحابي ---
+st.set_page_config(page_title="Radar Signal Cloud Intelligence", layout="wide")
+
 # كود لإخفاء أيقونة GitHub فقط والحفاظ على باقي القائمة
 st.markdown("""
     <style>
@@ -28,11 +31,6 @@ st.markdown(hide_github_icon, unsafe_allow_html=True)
 url = "https://docs.google.com/spreadsheets/d/13kcl0WS0LE1rXWm4aanpby8wO5542JaR76038ofa1-E/edit?usp=sharing" 
 conn = st.connection("gsheets", type=GSheetsConnection, url=url)
 
-# --- 1. إعداد الصفحة والربط السحابي ---
-st.set_page_config(page_title="Radar Signal Cloud Intelligence", layout="wide")
-
-# إنشاء اتصال مع Google Sheets
-#conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_users():
     try:
