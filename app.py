@@ -7,6 +7,19 @@ import streamlit_authenticator as stauth
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
+# كود لإخفاء زر الجيت هب والقائمة العلوية
+hide_github_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppDeployButton {display:none;}
+    [data-testid="bundle_github_cursor_detector"] {display:none;}
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_github_style, unsafe_allow_html=True)
+
+
 # --- 1. إعداد الصفحة والربط السحابي ---
 st.set_page_config(page_title="Radar Signal Cloud Intelligence", layout="wide")
 
@@ -52,10 +65,15 @@ if not st.session_state.get('authentication_status'):
             # عملية التسجيل - المكتبة بتتعامل مع الـ credentials اللي مررناها فوق
             result = authenticator.register_user(location='main')
             
+           
+         
             if result:
-                # هنا التعديل: بدل ما ننادي 'config'، بنستخدم المتغير credentials اللي عرفناه فوق
-                new_username = list(credentials["usernames"].keys())[-1]
-                user_info = credentials["usernames"][new_username]
+                # التأكد أن القائمة ليست فارغة قبل الوصول للاندكس
+                usernames_list = list(credentials["usernames"].keys())
+                if usernames_list:
+                    new_username = usernames_list[-1]
+                    user_info = credentials["usernames"][new_username]
+                    # باقي كود الـ DataFrame والـ update زي ما هو...
 
                 # تجهيز البيانات للإرسال للجوجل شيت
                 new_entry = pd.DataFrame([{
