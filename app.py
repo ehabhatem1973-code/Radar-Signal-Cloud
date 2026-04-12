@@ -144,20 +144,26 @@ if st.session_state.get('authentication_status'):
                 res_label = ['AM', 'FM'][np.argmax(prediction)]
                 confidence = np.max(prediction) * 100
                 
-                st.subheader("2. Intelligence Results")
-                c1, c2 = st.columns(2)
-                c1.metric("Detected Modulation", res_label)
-                c2.metric("Confidence Score", f"{confidence:.2f}%")
-
-            # 3. رسم السبيكتروجرام (Fingerprint Graph) 🎨
-            st.subheader("3. Spectrogram (Signal Fingerprint)")
+               
+         # 3. رسم السبيكتروجرام (Fingerprint Graph) 🎨
+           st.subheader("2. Spectrogram (Signal Fingerprint)")
             fig2, ax2 = plt.subplots(figsize=(10, 4))
             # استخدام cmap ملون مثل viridis لإظهار شدة الإشارة
-            img = ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
-            ax2.set_ylabel("Frequency Bin")
-            ax2.set_xlabel("Time Bin")
-            ax2.set_title("Signal Power Spectrogram")
+           img = ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
+           ax2.set_ylabel("Frequency Bin")
+           ax2.set_xlabel("Time Bin")
+           ax2.set_title("Signal Power Spectrogram")
             
             # إضافة Colorbar لإظهار مقياس الشدة
             fig2.colorbar(img, ax=ax2, label='Normalized Intensity')
             st.pyplot(fig2)
+               
+               
+               
+               
+                st.subheader("3. Intelligence Results")
+                c1, c2 = st.columns(2)
+                c1.metric("Detected Modulation", res_label)
+                c2.metric("Confidence Score", f"{confidence:.2f}%")
+
+          
