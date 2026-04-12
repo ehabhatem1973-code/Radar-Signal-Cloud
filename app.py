@@ -7,28 +7,22 @@ import streamlit_authenticator as stauth
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# --- 1. إعداد الصفحة والربط السحابي ---
+# 1. إعداد الصفحة (لازم أول سطر)
 st.set_page_config(page_title="Radar Signal Cloud Intelligence", layout="wide")
 
-# كود لإخفاء أيقونة GitHub فقط والحفاظ على باقي القائمة
+# 2. كود إخفاء أيقونة GitHub فقط مع الحفاظ على القائمة
 st.markdown("""
     <style>
-    /* إخفاء زر الجيت هب وأي أزرار نشر إضافية */
-    .stAppDeployButton, .viewerBadge_container__1QS1n, .styles_viewerBadge__1yB5_ {
+    /* إخفاء زر الجيت هب وأي أزرار نشر */
+    .stAppDeployButton, #StyledgithubIcon {
         display: none !important;
     }
-    /* إخفاء القطة تحديداً من شريط الأدوات */
-    #StyledgithubIcon {
-        display: none !important;
-    }
-    header {visibility: visible !important;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
-st.markdown(hide_github_icon, unsafe_allow_html=True)
 
-# 2. إعداد الاتصال بالجوجل شيت (حط الجزء اللي بتسأل عليه هنا)
-# استبدل الرابط اللي تحت بالرابط الحقيقي بتاع ملفك
-url = "https://docs.google.com/spreadsheets/d/13kcl0WS0LE1rXWm4aanpby8wO5542JaR76038ofa1-E/edit?usp=sharing" 
+# 3. إعداد الاتصال بالجوجل شيت (تأكد إن الرابط صحيح)
+url = "https://docs.google.com/spreadsheets/d/13kcl0WS0LE1rXWm4aanpby8wO5542JaR76038ofa1-E/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection, url=url)
 
 
