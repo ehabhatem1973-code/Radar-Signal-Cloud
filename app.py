@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from scipy.signal import spectrogram, butter, filtfilt
 import streamlit_authenticator as stauth
-from st_gsheets_connection import GSheetsConnection
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import librosa
 import io
