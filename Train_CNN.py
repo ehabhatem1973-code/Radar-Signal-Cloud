@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 FS                = 5000
 DURATION          = 1
 SAMPLES           = FS * DURATION
-SAMPLES_PER_CLASS = 500
-SNR_RANGE         = (-5, 15)           # نطاق الشوشرة (من قوية جداً لمتوسطة)
-FREQ_RANGE        = (50, 400)          # نطاق ترددات الكارير عشان ميبقاش ثابت
+SAMPLES_PER_CLASS = 600
+SNR_RANGE         = (0, 25)           # نطاق الشوشرة (من قوية جداً لمتوسطة)
+FREQ_RANGE        = (50, 200)          # نطاق ترددات الكارير عشان ميبقاش ثابت
 
 SIGNAL_NAMES = [
     "AM", "FM", "PM",
@@ -273,23 +273,27 @@ def build_model(num_classes=12):
     x = layers.Conv2D(32, (3,3), padding='same', activation='relu')(inp)
     x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D((2,2))(x)
-    x = layers.Dropout(0.3)(x) # منع الحفظ
 
     # Block 2
     x = layers.Conv2D(64, (3,3), padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D((2,2))(x)
-    x = layers.Dropout(0.4)(x) # دروب أوت أقوى
+
+    # Block 3 (رجعناه عشان الـ Underfitting اللي حاصل)
+    x = layers.Conv2D(128, (3,3), padding='same', activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling2D((2,2))(x)
+    x = layers.Dropout(0.3)(x) 
 
     # Classifier
     x = layers.Flatten()(x)
-    x = layers.Dense(256, activation='relu')(x) # قللنا الـ Dense لزيادة الكفاءة
+    x = layers.Dense(512, activation='relu')(x) # زودنا السعة لـ 512
     x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x) # أهم دروب أوت لمنع الـ Overfitting
+    x = layers.Dropout(0.5)(x)
     out = layers.Dense(num_classes, activation='softmax')(x)
 
     m = models.Model(inp, out)
-    m.compile(optimizer=tf.keras.optimizers.Adam(1e-4), # سرعة تعلم أهدأ للثبات
+    m.compile(optimizer=tf.keras.optimizers.Adam(2e-4), # سرعة تعلم أعلى شوية
               loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return m
 
