@@ -13,8 +13,9 @@ import matplotlib.pyplot as plt
 FS                = 5000
 DURATION          = 1
 SAMPLES           = FS * DURATION
-SAMPLES_PER_CLASS = 300
-NOISE_STD         = 0.15
+SAMPLES_PER_CLASS = 500
+SNR_RANGE         = (-5, 15)           # نطاق الشوشرة (من قوية جداً لمتوسطة)
+FREQ_RANGE        = (50, 400)          # نطاق ترددات الكارير عشان ميبقاش ثابت
 
 SIGNAL_NAMES = [
     "AM", "FM", "PM",
@@ -49,69 +50,120 @@ def apply_signal_filter(signal, signal_type):
     return low_pass_filter(signal, cutoff=300)
 
 # ============================================================
-# 2. توليد الإشارات (12 نوع)
 # ============================================================
+# 2. توليد الإشارات (12 نوع مع تردد ونويز متغير)
+# ============================================================
+
+def get_random_params():
+    # تردد الكارير متغير بين 80 و 250 هرتز
+    f_c = np.random.uniform(FREQ_RANGE[0], FREQ_RANGE[1])
+    # نسبة الشوشرة SNR متغيرة
+    snr = np.random.uniform(SNR_RANGE[0], SNR_RANGE[1])
+    return f_c, snr
+
+def apply_noise(signal, snr_db):
+    snr_linear = 10**(snr_db / 10)
+    sig_power = np.mean(signal**2)
+    noise_power = sig_power / (snr_linear + 1e-8)
+    noise = np.sqrt(noise_power) * np.random.normal(size=len(signal))
+    return signal + noise
+
+# --- إشارات الـ Analog ---
+
 def generate_am(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    return (1 + 0.5 * np.sin(2 * np.pi * 5 * t)) * np.sin(2 * np.pi * 100 * t)
+    f_c, snr = get_random_params()
+    sig = (1 + 0.5 * np.sin(2 * np.pi * 5 * t)) * np.sin(2 * np.pi * f_c * t)
+    return apply_noise(sig, snr)
 
 def generate_fm(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    return np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
+    f_c, snr = get_random_params()
+    # التردد بيتغير حول f_c بناءً على إشارة المعلومات
+    sig = np.sin(2 * np.pi * (f_c * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
+    return apply_noise(sig, snr)
 
 def generate_pm(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
+    f_c, snr = get_random_params()
     m = np.sin(2 * np.pi * 5 * t)
-    return np.sin(2 * np.pi * 100 * t + np.pi * m)
+    sig = np.sin(2 * np.pi * f_c * t + np.pi * m)
+    return apply_noise(sig, snr)
 
 def generate_ssb(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
+    f_c, snr = get_random_params()
     m = np.sin(2 * np.pi * 5 * t)
-    carrier = np.cos(2 * np.pi * 100 * t)
-    return m * carrier - np.sqrt(1 - m**2 + 1e-8) * np.sin(2 * np.pi * 100 * t)
+    carrier_cos = np.cos(2 * np.pi * f_c * t)
+    carrier_sin = np.sin(2 * np.pi * f_c * t)
+    # استخدام Hilbert transform التقريبي لإيجاد SSB
+    sig = m * carrier_cos - np.sqrt(1 - m**2 + 1e-8) * carrier_sin
+    return apply_noise(sig, snr)
 
 def generate_dsb(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
+    f_c, snr = get_random_params()
     m = np.sin(2 * np.pi * 5 * t)
-    return m * np.cos(2 * np.pi * 100 * t)
+    sig = m * np.cos(2 * np.pi * f_c * t)
+    return apply_noise(sig, snr)
+
+# --- إشارات الـ Digital ---
 
 def generate_fsk(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    f1, f2 = 50, 150
-    data = np.repeat(np.random.randint(0, 2, 10), 500)
-    return np.sin(2 * np.pi * np.where(data == 0, f1, f2) * t)
+    f_c, snr = get_random_params()
+    f1, f2 = f_c - 50, f_c + 50 # الترددين بيعتمدوا على f_c المتغير
+    data = np.repeat(np.random.randint(0, 2, 10), fs//10)
+    sig = np.sin(2 * np.pi * np.where(data == 0, f1, f2) * t)
+    return apply_noise(sig, snr)
 
 def generate_ask(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    data = np.repeat(np.random.randint(0, 2, 10), 500)
-    return np.where(data == 0, 0.1, 1.0) * np.sin(2 * np.pi * 100 * t)
+    f_c, snr = get_random_params()
+    data = np.repeat(np.random.randint(0, 2, 10), fs//10)
+    sig = np.where(data == 0, 0.2, 1.0) * np.sin(2 * np.pi * f_c * t)
+    return apply_noise(sig, snr)
 
 def generate_bpsk(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    data = np.repeat(np.random.randint(0, 2, 10), 500)
-    return np.sin(2 * np.pi * 100 * t + np.where(data == 0, 0, np.pi))
+    f_c, snr = get_random_params()
+    data = np.repeat(np.random.randint(0, 2, 10), fs//10)
+    sig = np.sin(2 * np.pi * f_c * t + np.where(data == 0, 0, np.pi))
+    return apply_noise(sig, snr)
 
 def generate_qpsk(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    return np.sin(2 * np.pi * 100 * t + np.random.choice([0, np.pi/2, np.pi, 3*np.pi/2]))
+    f_c, snr = get_random_params()
+    # تغيير الطور عشوائياً لكل عينة
+    phase = np.random.choice([0, np.pi/2, np.pi, 3*np.pi/2])
+    sig = np.sin(2 * np.pi * f_c * t + phase)
+    return apply_noise(sig, snr)
 
 def generate_qam4(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
-    return np.sin(2 * np.pi * 100 * t + np.random.choice([np.pi/4, 3*np.pi/4, 5*np.pi/4, 7*np.pi/4]))
+    f_c, snr = get_random_params()
+    phase = np.random.choice([np.pi/4, 3*np.pi/4, 5*np.pi/4, 7*np.pi/4])
+    sig = np.sin(2 * np.pi * f_c * t + phase)
+    return apply_noise(sig, snr)
 
 def generate_qam16(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
+    f_c, snr = get_random_params()
     pts = [-3, -1, 1, 3]
     I, Q = np.random.choice(pts), np.random.choice(pts)
-    sig = I * np.cos(2 * np.pi * 100 * t) - Q * np.sin(2 * np.pi * 100 * t)
-    return sig / (np.max(np.abs(sig)) + 1e-8)
+    sig = I * np.cos(2 * np.pi * f_c * t) - Q * np.sin(2 * np.pi * f_c * t)
+    # Normalize
+    sig = sig / (np.max(np.abs(sig)) + 1e-8)
+    return apply_noise(sig, snr)
 
 def generate_qam64(fs=FS):
     t = np.linspace(0, 1, fs, endpoint=False)
+    f_c, snr = get_random_params()
     pts = [-7, -5, -3, -1, 1, 3, 5, 7]
     I, Q = np.random.choice(pts), np.random.choice(pts)
-    sig = I * np.cos(2 * np.pi * 100 * t) - Q * np.sin(2 * np.pi * 100 * t)
-    return sig / (np.max(np.abs(sig)) + 1e-8)
+    sig = I * np.cos(2 * np.pi * f_c * t) - Q * np.sin(2 * np.pi * f_c * t)
+    sig = sig / (np.max(np.abs(sig)) + 1e-8)
+    return apply_noise(sig, snr)
 
 GENERATORS = [
     generate_am, generate_fm, generate_pm,
@@ -175,24 +227,34 @@ def get_spec(signal, fs=FS):
     Sxx_log   = 10 * np.log10(Sxx + 1e-10)
     return (Sxx_log - Sxx_log.min()) / (Sxx_log.max() - Sxx_log.min() + 1e-8)
 
+
 # ============================================================
-# 5. بناء الـ Dataset
+# 5. بناء الـ Dataset (التعديل الشامل لمنع الـ Overfitting)
 # ============================================================
 print("📦 Preparing Dataset...")
 X, y = [], []
 
 for label, (gen_func, sig_name) in enumerate(zip(GENERATORS, SIGNAL_NAMES)):
-    for _ in range(SAMPLES_PER_CLASS):
-        noise = np.random.normal(0, NOISE_STD, SAMPLES)
-        raw   = gen_func()
-        filt  = apply_signal_filter(raw + noise, sig_name)
-        X.append(get_spec(filt))
+    for i in range(SAMPLES_PER_CLASS):
+        # هنا بننادي الدالة اللي إحنا عدلناها (زي generate_am)
+        # الدالة دي دلوقتي جواها get_random_params و apply_noise
+        # يعني هي بترجع الإشارة بتردد عشوائي ونويز متغير جاهزة
+        filt_signal = gen_func() 
+        
+        # تحويل الإشارة لـ Spectrogram
+        spec_data = get_spec(filt_signal)
+        
+        # إضافة البيانات للقائمة
+        X.append(spec_data)
         y.append(label)
+        
     print(f"  ✅ {sig_name} done ({SAMPLES_PER_CLASS} samples)")
 
+# تحويل القوائم لـ Numpy Arrays وتغيير الشكل ليتناسب مع الـ CNN
 X = np.array(X).reshape(-1, 129, 38, 1)
 y = np.array(y)
-print(f"\n✅ Dataset: {X.shape}  |  {NUM_CLASSES} classes")
+
+print(f"\n✅ Dataset Ready: {X.shape} samples | {NUM_CLASSES} classes")
 
 # ============================================================
 # 6. تقسيم البيانات
@@ -210,39 +272,25 @@ def build_model(num_classes=12):
     # Block 1
     x = layers.Conv2D(32, (3,3), padding='same', activation='relu')(inp)
     x = layers.BatchNormalization()(x)
-    x = layers.Conv2D(32, (3,3), padding='same', activation='relu')(x)
     x = layers.MaxPooling2D((2,2))(x)
-    x = layers.Dropout(0.25)(x)
+    x = layers.Dropout(0.3)(x) # منع الحفظ
 
     # Block 2
     x = layers.Conv2D(64, (3,3), padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Conv2D(64, (3,3), padding='same', activation='relu')(x)
     x = layers.MaxPooling2D((2,2))(x)
-    x = layers.Dropout(0.25)(x)
-
-    # Block 3
-    x = layers.Conv2D(128, (3,3), padding='same', activation='relu')(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Conv2D(128, (3,3), padding='same', activation='relu')(x)
-    x = layers.MaxPooling2D((2,2))(x)
-    x = layers.Dropout(0.3)(x)
+    x = layers.Dropout(0.4)(x) # دروب أوت أقوى
 
     # Classifier
-    x   = layers.Flatten()(x)
-    x   = layers.Dense(512, activation='relu')(x)
-    x   = layers.BatchNormalization()(x)
-    x   = layers.Dropout(0.4)(x)
-    x   = layers.Dense(256, activation='relu')(x)
-    x   = layers.Dropout(0.3)(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(256, activation='relu')(x) # قللنا الـ Dense لزيادة الكفاءة
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x) # أهم دروب أوت لمنع الـ Overfitting
     out = layers.Dense(num_classes, activation='softmax')(x)
 
     m = models.Model(inp, out)
-    m.compile(
-        optimizer=tf.keras.optimizers.Adam(1e-3),
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
-    )
+    m.compile(optimizer=tf.keras.optimizers.Adam(1e-4), # سرعة تعلم أهدأ للثبات
+              loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return m
 
 model = build_model(NUM_CLASSES)
@@ -313,4 +361,21 @@ plt.show()
 
 print("\n📋 Classification Report:")
 print(classification_report(y_test, y_pred, target_names=SIGNAL_NAMES))
+# ============================================================
+# 12. وظيفة التدريب المستمر (التدريب مع كل إدخال جديد)
+# ============================================================
+def update_model_on_the_fly(model, new_signal_data, true_label_idx):
+    # تحويل الإشارة لـ Spectrogram بنفس الطريقة القديمة
+    spec = get_spec(new_signal_data)
+    spec = spec.reshape(1, 129, 38, 1)
+    
+    # عمل "تحديث" سريع للموديل على العينة دي بس
+    # بنستخدم epochs=1 عشان ميبوظش اللي اتعلمه قبل كده
+    model.fit(spec, np.array([true_label_idx]), epochs=1, verbose=0)
+    
+    # حفظ النسخة المحدثة
+    model.save("signal_cnn_model.h5")
+    return model
+
 print("🏆 Done!")
+ 
